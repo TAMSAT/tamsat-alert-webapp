@@ -1,0 +1,17 @@
+version: '3'
+services:
+    queue:
+        image: rabbitmq:3
+    backend:
+        build:
+            context: ./
+        expose:
+            - "80"
+        ports:
+            - "80:80"
+    celeryworker:
+        build:
+            context: ./
+            dockerfile: Dockerfile.celeryworker
+        depends_on:
+            - queue
