@@ -15,16 +15,32 @@ lock = Lock()
 @app.route("/jobs", methods=["GET"])
 def get_job_list():
     params = request.args
-    return render_template('job_list.html')
+    # Here, we get the job ref and email from the params
+    email = params['email']
+    job_ref = params['ref']
+    task_list = submitted_jobs[(email, job_ref)]
+
+    # TODO This template should use the task objects to check whether jobs
+    # are completed or not.  If so, link to downloadResult, with a job ID.
+    # The job ID is the output path returned by the task.
+
+    return render_template('job_list.html', tasks=tasks)
+
+
+@app.route("/downloadResult", methods=["GET"]):
+    params = request.args
+
+    # The job_id is the output directory containing the data, as returned from the task
+    job_id = params['job_id']
+
+    # TODO read whatever the data in that directory is (TBD), and return in in some way
+    return
 
 
 @app.route("/tamsatAlertTask", methods=["POST"])
 def submit():
+    # Get the POST parameters
     params = request.form
-
-    print('PARAMS:')
-    for k in params.keys():
-        print(k+','+ params[k])
 
     # Now parse parameters to their correct types and do basic sanity checks (? - form will have sanity checks on input in the JS)
     try:
@@ -47,7 +63,6 @@ def submit():
         poi_end = datetime.strptime(params['poiEnd'], '%Y-%m-%d').date()
         fc_start = datetime.strptime(params['forecastStart'], '%Y-%m-%d').date()
         fc_end = datetime.strptime(params['forecastEnd'], '%Y-%m-%d').date()
-        print(init_date, type(init_date))
 
         metric = params['metric']
         if(metric.lower() != 'cumrain' and
@@ -76,7 +91,7 @@ def submit():
 
     # Submit to the celery queue
     # TODO use location parameters to extract data (in tasks.py)
-    # TODO either allow different tasks based on "metric", or have one task that chooses
+    # TODO either allow different tasks based on "metric", or have one task that chooses correct metric
     task = tasks.tamsat_alert_run.delay(init_date, run_start, run_end, poi_start, poi_end, fc_start, fc_end, stat_type, tercile_weights)
 
     if((email, job_ref) not in submitted_jobs):
@@ -85,8 +100,10 @@ def submit():
     # TODO - anything else to add here?
     submitted_jobs[(email,job_ref)].append(task)
 
-    # Start a new thread to save the job list
-    save_thread = Thread(target = _save_joblist)
+    # Start a new thread to save the job list.
+    # This uses the file lock, so we don't get 2 simultaneous tasks writing
+    # the list to file.  So it may block, hence the new thread
+    save_thread = Thread(target = _save_joblist, args=(tasks.workdir))
     save_thread.start()
 
     # Return job submitted page
@@ -98,22 +115,19 @@ def _read_joblist(workdir):
     return {}
 
 
-# Initialise the joblist
+# Initialise the joblist when run
 submitted_jobs = _read_joblist(tasks.workdir)
 
 
-def _save_joblist():
+def _save_joblist(workdir):
     # Save the submitted jobs list to file here
+    # We lock this, so that we don't get inconsistencies
     lock.acquire()
 
-    # Check jobs to see if any need to be removed...
+    # TODO Check jobs to see if any need to be removed from the list
+    # this will happen x days after the task was completed
 
-    # In some ways it makes more sense to do this check regularly,
-    # but since the aim is to avoid endlessly using disk space,
-    # performing the check on saving (i.e. when a new job has
-    # been submitted) is an efficient way of working
-
-    # Do save
+    # TODO Do save
 
     lock.release()
 

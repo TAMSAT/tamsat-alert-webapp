@@ -47,18 +47,17 @@ def tamsat_alert_run(init_date, run_start, run_end, poi_start, poi_end, fc_start
     log.debug('Calling task')
     args = [init_date, run_start, run_end, poi_start, poi_end, fc_start, fc_end, stat_type, tercile_weights]
 
+    # For now, just print out the relevant values
     for i in args:
         print (i, type(i))
 
     # Setup an output directory in workdir
+    output_path = '123ABC'
 
     # Generate the job ID from the parameters
 
-    # Run the job
-    ta.tamsat_alert_cumrain("all_hist.txt", 0, 1970, 2011, init_date.year, init_date.month, init_date.day, run_start.year, run_start.month, run_start.day, run_end.year, run_end.month, run_end.day, 1970, 2009, 1, "histmetric.txt", "forecastmetric.txt", "ensemble.txt", poi_start.month, poi_start.day, poi_end.month, poi_end.day, poi_start.year, poi_end.year, 3, 1, fc_start.month, fc_start.day, fc_end.month, fc_end.day, 3, 1, stat_type, "Title of plot", [tercile_weights[0], tercile_weights[1], tercile_weights[2]])
+    # Run the job.  This will run the tamsat alert system, and write data to the
+    # output directory
+    ta.tamsat_alert_cumrain("all_hist.txt", 0, 1970, 2011, init_date.year, init_date.month, init_date.day, run_start.year, run_start.month, run_start.day, run_end.year, run_end.month, run_end.day, 1970, 2009, 1, "histmetric.txt", "forecastmetric.txt", "ensemble.txt", poi_start.month, poi_start.day, poi_end.month, poi_end.day, poi_start.year, poi_end.year, 3, True, fc_start.month, fc_start.day, fc_end.month, fc_end.day, stat_type, "Title of plot", [tercile_weights[0], tercile_weights[1], tercile_weights[2]])
 
-    # Do that stuff
-
-    # Return the completed time of the job
-    # and location
-    return dt.now()
+    return output_path
