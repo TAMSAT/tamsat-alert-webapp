@@ -1,0 +1,3 @@
+[submodule "app/tamsat_alert"]
+	path = app/tamsat_alert
+	url = git@github.com:TAMSAT/tamsat-alert.git
