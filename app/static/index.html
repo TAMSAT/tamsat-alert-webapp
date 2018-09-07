@@ -18,61 +18,39 @@
 	<form method="POST" action="tamsatAlertTask" onsubmit="return validateForm()">
 		<fieldset>
 			<legend>Location</legend>
-			<label for="choosePoint">Point</label>
-			<input type="radio" id="choosePoint" name="locationType" value="point" onchange="locationTypeSelected(value)" checked>
-			<label for="choosePoint">Region</label>
-			<input type="radio" id="chooseRegion" name="locationType" value="region" onchange="locationTypeSelected(value)">
+			<!-- The TAMSAT alert system takes -->
+			<input type="hidden" name="locationType" value="point" />
 			<div id="pointSelection">
 				<label for="lat">Latitude</label>
 				<input id="lat" type="number" name="lat" min=-35 max=39 value=0 step="any" />
 				<label for="lon">Longitude</label>
 				<input id="lon" type="number" name="lon" min=-20 max=52 value=0 step="any" />
 			</div>
-			<div id="regionSelection">
-				<!-- data-subset.js adds countries here once they are loaded on the server, with Bounding Box being the first option... -->
-				<div id="bounds">
-					<label>Region:</label>
-					<div class="bounds-row">
-						<input id="maxLat" type="number" name="maxLat" min=-35 max=39 value=10 step="any" />
-					</div>
-					<div class="bounds-row">
-						<input id="minLon" type="number" name="minLon" min=-20 max=52 value=-10 step="any" />
-						<input id="maxLon" type="number" name="maxLon" min=-20 max=52 value=10 step="any" />
-					</div>
-					<div class="bounds-row">
-						<input id="minLat" type="number" name="minLat" min=-35 max=39 value=-10 step="any" />
-					</div>
-				</div>
-			</div>
 		</fieldset>
 		<fieldset>
 			<legend>Time</legend>
 			<label for="forecastDate">Forecast Date</label>
-			<input type="date" id="forecastDate" name="initDate" value="2010-01-01" required>
-			<label for="poiStart">Run start</label>
-			<input type="date" id="runStart" name="runStart" value="2010-01-01" required>
-			<label for="poiEnd">Run end</label>
-			<input type="date" id="runEnd" name="runEnd" value="2011-01-01" required>
+			<input type="date" id="forecastDate" name="initDate" value="2010-12-01" required>
 			<label for="poiStart">Period of interest start</label>
-			<input type="date" id="poiStart" name="poiStart" min="1970-01-01" max="1970-12-31" value="1970-01-01" required>
+			<input type="date" id="poiStart" name="poiStart" min="1970-01-01" max="1970-12-31" value="1970-11-01" required>
 			<label for="poiEnd">Period of interest end</label>
-			<input type="date" id="poiEnd" name="poiEnd" min="2009-01-01" max="2009-12-31" value="2009-12-31" required>
+			<input type="date" id="poiEnd" name="poiEnd" min="2009-01-01" max="2009-12-31" value="2009-02-28" required>
 		</fieldset>
 		<fieldset>
 			<legend>Metric</legend>
 			<label for="cumRain">Cumulative Rainfall</label>
 			<input type="radio" id="cumRain" name="metric" value="cumRain" checked>
-			<label for="wrsi">WRSI</label>
+			<!-- <label for="wrsi">WRSI</label>
 			<input type="radio" id="wrsi" name="metric" value="wrsi">
 			<label for="soilmoisture">Soil Moisture</label>
-			<input type="radio" id="soilmoisture" name="metric" value="soilMoisture">
+			<input type="radio" id="soilmoisture" name="metric" value="soilMoisture"> -->
 		</fieldset>
 		<fieldset>
 			<legend>Meteorological Forecast</legend>
 			<label for="forecastStart">Forecast period start</label>
-			<input type="date" id="forecastStart" name="forecastStart" min="9999-01-01" max="9999-12-31" value="9999-01-01" required>
+			<input type="date" id="forecastStart" name="forecastStart" min="1970-01-01" max="1970-12-31" value="1970-01-01" required>
 			<label for="forecastEnd">Forecast period end</label>
-			<input type="date" id="forecastEnd" name="forecastEnd" min="9999-01-01" max="9999-12-31" value="9999-12-31" required>
+			<input type="date" id="forecastEnd" name="forecastEnd" min="1970-01-01" max="1970-12-31" value="1970-09-30" required>
 
 			<label>Tercile Probabilities</label>
 			<input type="number" name="tercileLow" value="0">

@@ -3,9 +3,10 @@
 import os
 from flask import Flask, send_file, abort, request, render_template
 from threading import Lock, Thread
-from datetime import date, datetime
 from math import isclose
+from pandas import Timestamp
 import tasks
+
 
 app = Flask(__name__)
 
@@ -27,7 +28,8 @@ def get_job_list():
     return render_template('job_list.html', tasks=tasks)
 
 
-@app.route("/downloadResult", methods=["GET"]):
+@app.route("/downloadResult", methods=["GET"])
+def download():
     params = request.args
 
     # The job_id is the output directory containing the data, as returned from the task
@@ -45,9 +47,10 @@ def submit():
     # Now parse parameters to their correct types and do basic sanity checks (? - form will have sanity checks on input in the JS)
     try:
         # TODO This is currently not used - we need the data extraction module first
+
         locType = params['locationType']
         if(locType.lower() == 'point'):
-            location = (float(params['lat']), float(params['lon']))
+            location = (float(params['lon']), float(params['lat']))
         elif(locType.lower() == 'region'):
             location = (float(params['minLat']),
                         float(params['maxLat']),
@@ -56,13 +59,11 @@ def submit():
         else:
             raise ValueError('Parameter "locationType" must be either "point" or "region"')
 
-        init_date = datetime.strptime(params['initDate'], '%Y-%m-%d').date()
-        run_start = datetime.strptime(params['runStart'], '%Y-%m-%d').date()
-        run_end = datetime.strptime(params['runEnd'], '%Y-%m-%d').date()
-        poi_start = datetime.strptime(params['poiStart'], '%Y-%m-%d').date()
-        poi_end = datetime.strptime(params['poiEnd'], '%Y-%m-%d').date()
-        fc_start = datetime.strptime(params['forecastStart'], '%Y-%m-%d').date()
-        fc_end = datetime.strptime(params['forecastEnd'], '%Y-%m-%d').date()
+        init_date = Timestamp(params['initDate'])
+        poi_start = Timestamp(params['poiStart'])
+        poi_end = Timestamp(params['poiEnd'])
+        fc_start = Timestamp(params['forecastStart'])
+        fc_end = Timestamp(params['forecastEnd'])
 
         metric = params['metric']
         if(metric.lower() != 'cumrain' and
@@ -84,15 +85,14 @@ def submit():
         email = params['email']
         job_ref = params['ref']
 
-    except Exception as e:
+    except ValueError as e:
         # TODO handle error with parameters (return an error template, with message)
         # TODO separate KeyError catch clause
         raise Exception('Problem', e)
 
     # Submit to the celery queue
-    # TODO use location parameters to extract data (in tasks.py)
     # TODO either allow different tasks based on "metric", or have one task that chooses correct metric
-    task = tasks.tamsat_alert_run.delay(init_date, run_start, run_end, poi_start, poi_end, fc_start, fc_end, stat_type, tercile_weights)
+    task = tasks.tamsat_alert_run.delay(location, init_date, poi_start, poi_end, fc_start, fc_end, stat_type, tercile_weights)
 
     if((email, job_ref) not in submitted_jobs):
         submitted_jobs[(email, job_ref)] = []
@@ -100,10 +100,12 @@ def submit():
     # TODO - anything else to add here?
     submitted_jobs[(email,job_ref)].append(task)
 
+    print('#####', tasks.workdir)
+
     # Start a new thread to save the job list.
     # This uses the file lock, so we don't get 2 simultaneous tasks writing
     # the list to file.  So it may block, hence the new thread
-    save_thread = Thread(target = _save_joblist, args=(tasks.workdir))
+    save_thread = Thread(target = _save_joblist, args=(tasks.workdir,))
     save_thread.start()
 
     # Return job submitted page
