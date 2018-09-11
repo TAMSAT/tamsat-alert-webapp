@@ -92,7 +92,7 @@ def submit():
 
     # Submit to the celery queue
     # TODO either allow different tasks based on "metric", or have one task that chooses correct metric
-    task = tasks.tamsat_alert_run.delay(location, init_date, poi_start, poi_end, fc_start, fc_end, stat_type, tercile_weights)
+    task = tasks.tamsat_alert_run.delay(location, init_date, poi_start, poi_end, fc_start, fc_end, stat_type, tercile_weights, email)
 
     if((email, job_ref) not in submitted_jobs):
         submitted_jobs[(email, job_ref)] = []
