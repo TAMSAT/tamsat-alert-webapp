@@ -88,8 +88,13 @@ def tamsat_alert_run(location, init_date, poi_start, poi_end, fc_start, fc_end, 
     except OSError as e:
         log.error('Problem removing working directory: '+output_path)
 
-    # TODO send an email to the user, with link to a direct download.
     # TODO this will require an arg to this function with the server name
+    message = 'Your TAMSAT alert data is ready.  Download it.  It will be available until blah blah, or x hours after you have downloaded it'
+
+    try:
+        util.send_email(email, 'TAMSAT alert data ready', message, config['Email'])
+    except Error as e:
+        log.error('Problem sending email', e)
 
     # Update the database to indicate the job is completed
     db = sqlite3.connect(config['Tasks']['dbfile'])
