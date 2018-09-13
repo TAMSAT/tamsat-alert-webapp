@@ -1,4 +1,3 @@
-import configparser
 import os, os.path, shutil
 import hashlib
 from celery import Celery, Task
@@ -6,32 +5,16 @@ from celery.utils.log import get_task_logger
 
 from tamsat_alert import tamsat_alert as ta
 from tamsat_alert.extract_data import extract_point_timeseries
+from config import config
+
 from time import time
+from datetime import datetime as dt
 import zipfile
 
+ID_KEY = 'id'
+COMPLETED_TIME_KEY = 'completed_time'
+
 log = get_task_logger(__name__)
-
-config = configparser.ConfigParser()
-# Set up default options, in case they are missing from the file
-config['Tasks'] = {'workdir': '/tmp/tamsat-alert',
-                   'days_to_keep_completed': '7',
-                   'days_to_keep_downloaded': '1'}
-config['Email'] = {'server': 'smtp.reading.ac.uk',
-                   'reply-to': 'tamsat@reading.ac.uk',
-                   'username': 'CHANGEME',
-                   'password': 'CHANGEME'}
-config['Data'] = {'path': '/configure/path/to/data',
-                  'climatology_start_year': '1983',
-                  'climatology_end_year': '2010',
-                  'period_of_interest_start_year': '1983',
-                  'period_of_interest_end_year': '2010'
-                  }
-config['Celery'] = {'backend': 'redis://',
-                    'broker': 'amqp://guest@queue//'}
-
-
-# Read the config file.  This will overwrite any defaults
-config.read('tamsat-alert.cfg')
 
 # Setup the working directory and create if necessary
 workdir = config['Tasks']['workdir']
@@ -51,6 +34,7 @@ celery_app = Celery('tasks',
 celery_app.conf.update(task_serializer='pickle',
                        accept_content=['json', 'pickle'])
 
+from time import sleep
 
 @celery_app.task()
 def tamsat_alert_run(location, init_date, poi_start, poi_end, fc_start, fc_end, stat_type, tercile_weights, email):
@@ -59,14 +43,14 @@ def tamsat_alert_run(location, init_date, poi_start, poi_end, fc_start, fc_end, 
     lon, lat = location
 
     # Setup an output directory in workdir
-    # This is based on email + the current time, accurate to 1 microsecond
-    # If a user manages to submit two jobs, with the same email address
-    # at exactly the same time, to the nearest microsecond, then it's
-    # their own fault that it doesn't work.
-    #
-    # Hashed, so that we don't store email addresses
-    path_name = hashlib.md5(bytes(email+str(time()), 'utf-8')).hexdigest()
-    output_path = os.path.join(workdir, path_name)
+    # This is based on the celery job ID, so should be unique
+    job_id = tamsat_alert_run.request.id
+    output_path = os.path.join(workdir, job_id)
+
+    sleep(30)
+    open(get_zipfile_from_job_id(job_id), 'w').close()
+    return {ID_KEY: job_id,
+            COMPLETED_TIME_KEY: dt.now()}
 
     # Extract a DataFrame containing the data at the specified location
     data = extract_point_timeseries(config['Data']['path'], lon, lat)
@@ -100,8 +84,8 @@ def tamsat_alert_run(location, init_date, poi_start, poi_end, fc_start, fc_end, 
                     location_name=location_name)
 
     # Now go into output_dir and create a zip file containing everything.
-    zipfile_name = path_name+'.zip'
-    zipf = zipfile.ZipFile(os.path.join(workdir, zipfile_name),
+    zipfile_name = get_zipfile_from_job_id(job_id)
+    zipf = zipfile.ZipFile(zipfile_name,
                            'w', zipfile.ZIP_DEFLATED)
     for root, dirs, files, in os.walk(output_path):
         for file in files:
@@ -115,4 +99,11 @@ def tamsat_alert_run(location, init_date, poi_start, poi_end, fc_start, fc_end, 
     except OSError as e:
         log.error('Problem removing working directory: '+output_path)
 
-    return zipfile_name
+    # TODO send an email to the user, with link to a direct download.
+    # TODO this will require an arg to this function with the server name
+
+    return {ID_KEY: job_id,
+            COMPLETED_TIME_KEY: dt.now()}
+
+def get_zipfile_from_job_id(job_id):
+    return os.path.join(workdir, job_id+'.zip')
