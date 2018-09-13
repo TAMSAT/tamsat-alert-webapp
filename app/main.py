@@ -7,16 +7,45 @@ from math import isclose
 from pandas import Timestamp
 import pickle
 import tasks
+import util
 from config import config
 import exceptions as ex
 from datetime import timedelta, datetime as dt
+import sqlite3
+import hashlib
 
 
+# Define the Flask app at top module level.
+# This is the recommended method for small webapps
 app = Flask(__name__)
 
-lock = Lock()
 
-joblist_filename = 'joblist.dat'
+
+# Setup the working directory and create if necessary
+workdir = config['Tasks']['workdir']
+if(os.path.exists(workdir)):
+    if(not os.path.isdir(workdir)):
+        raise ValueError('The configured working directory (' +
+                         workdir + ') exists, but it is not a directory')
+else:
+    os.mkdir(workdir)
+
+# Setup the job list database on first run, if necessary
+# No try / except - if this raises an exception, the entire app will fail to start
+# That is the desired behaviour - if we can't create the database, something is wrong
+db = sqlite3.connect(config['Tasks']['dbfile'])
+# 'with' takes care of the commit, but doesn't close the DB
+with db:
+    c = db.cursor()
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS jobs(id INTEGER PRIMARY KEY AUTOINCREMENT,
+            userhash TEXT,
+            status TEXT,
+            time INTEGER,
+            description TEXT,
+            job_id TEXT)
+    ''')
+db.close()
 
 
 @app.route("/jobs", methods=["GET"])
@@ -28,20 +57,37 @@ def get_job_list():
         job_ref = params['ref']
     except KeyError as e:
         # Either the email or ref parameter is missing
-        # TODO handle errors properly
         raise ex.InvalidUsage('You must provide a value for '+e.args[0])
 
-    try:
-        task_list = submitted_jobs[(email, job_ref)]
-    except KeyError:
-        # No jobs by that user/ref combination
-        task_list = []
+    db = sqlite3.connect(config['Tasks']['dbfile'])
+    # 'with' takes care of the commit, but doesn't close the DB
+    with db:
+        db.row_factory = sqlite3.Row
+        c = db.cursor()
+        c.execute('''
+            SELECT description, status, time, job_id
+            FROM jobs
+            WHERE userhash=?
+            ''',
+            (_get_hash(email, job_ref),))
+        rows = c.fetchall()
+    db.close()
 
-    # TODO This template should use the task objects to check whether jobs
-    # are completed or not.  If so, link to downloadResult, with a job ID.
-    # The job ID is the output path returned by the task.
+    jobs = []
+    for row in rows:
+        jobs.append({
+            'description': row['description'],
+            'status': row['status'],
+            'time': dt.fromtimestamp(int(row['time'])),
+            'job_id': row['job_id']
+        })
 
-    return render_template('job_list.html', jobs=task_list)
+    return render_template('job_list.html',
+        email=email,
+        job_ref=job_ref,
+        jobs=jobs,
+        days_after_completed = config['Tasks']['days_to_keep_completed'],
+        hours_after_downloaded = config['Tasks']['hours_to_keep_downloaded'])
 
 
 @app.route("/downloadResult", methods=["GET"])
@@ -53,10 +99,20 @@ def download():
     except KeyError:
         raise ex.InvalidUsage('You must provide a value for '+e.args[0])
 
-    zipfile = tasks.get_zipfile_from_job_id(job_id)
+    zipfile = util.get_zipfile_from_job_id(job_id)
 
-    if not os.path.exists(zipfile):
+    if not os.path.exists(zipfile) or not os.path.isfile(zipfile):
         raise ex.InvalidUsage('The job with ID '+job_id+' does not exist on this server.  Completed jobs get removed '+config['Tasks']['days_to_keep_completed']+' days after completion.')
+
+    db = sqlite3.connect(config['Tasks']['dbfile'])
+    with db:
+        c = db.cursor()
+        c.execute('''
+            UPDATE jobs SET status=?, time=?
+            WHERE job_id=?
+            ''',
+            ('DOWNLOADED', int(dt.now().timestamp()), job_id))
+    db.close()
 
     return send_file(zipfile, attachment_filename='tamsat_alert.zip')
 
@@ -108,64 +164,40 @@ def submit():
     except KeyError as e:
         raise ex.InvalidUsage('You must provide a value for '+e.args[0])
 
+
+    # TODO make descriptive
+    description = 'Cumulative rainfall at ' + util.location_to_str(*location)
+    db = sqlite3.connect(config['Tasks']['dbfile'])
+    # 'with' takes care of the commit, but doesn't close the DB
+    with db:
+        c = db.cursor()
+        c.execute('''
+            INSERT INTO jobs(userhash, status, time, description) VALUES(?,?,?,?)
+            ''',
+            (_get_hash(email, job_ref), 'QUEUED', int(dt.now().timestamp()), description))
+        db_key = c.lastrowid
+    db.close()
+
     # Submit to the celery queue
-    # TODO either allow different tasks based on "metric", or have one task that chooses correct metric
-    task = tasks.tamsat_alert_run.delay(location, init_date, poi_start, poi_end, fc_start, fc_end, stat_type, tercile_weights, email)
+    # TODO Other metrics need implementing (i.e. soil moisture, WRSI)
+    task = tasks.tamsat_alert_run.delay(location,
+                                        init_date,
+                                        poi_start,
+                                        poi_end,
+                                        fc_start,
+                                        fc_end,
+                                        stat_type,
+                                        tercile_weights,
+                                        email,
+                                        db_key)
 
-    if((email, job_ref) not in submitted_jobs):
-        submitted_jobs[(email, job_ref)] = []
-
-    # TODO - anything else to add here?
-    # Yes - any details we want to display to the user
-    # This will include location and submit time
-    submitted_jobs[(email,job_ref)].append(task)
-
-    _save_joblist(tasks.workdir, submitted_jobs)
 
     # Return job submitted page
-    return render_template('job_submitted.html', job_ref = job_ref, email = email)
-
-
-def _read_joblist(workdir):
-    try:
-        with open(os.path.join(workdir, joblist_filename), 'rb') as file:
-            return pickle.load(file)
-    except FileNotFoundError:
-        # There is no list of jobs, return an empty dictionary
-        return {}
-
-
-# Initialise the joblist when run
-submitted_jobs = _read_joblist(tasks.workdir)
-
-
-def _save_joblist(workdir, jobs):
-    # Start a new thread to save the job list.
-    # This uses the file lock, so we don't get 2 simultaneous tasks writing
-    # the list to file.  So it may block, hence the new thread
-    save_thread = Thread(target = __do_save__, args=(workdir, jobs))
-    save_thread.start()
-
-
-def __do_save__(workdir, jobs):
-    # TODO Test this job removal better
-    # Factor it out and write some unit tests...
-    days = int(config['Tasks']['days_to_keep_completed'])
-    for key in jobs:
-        joblist = jobs[key]
-        jobs[key] = [job for job in joblist
-                     if not job.ready() or
-                        job.result[tasks.COMPLETED_TIME_KEY] + timedelta(days=days) > dt.now()]
-
-
-    # Save the submitted jobs list to file here
-    # We lock this, so that we don't get inconsistencies
-    lock.acquire()
-
-    with open(os.path.join(workdir, joblist_filename), 'wb') as file:
-        pickle.dump(jobs, file)
-
-    lock.release()
+    return render_template('job_submitted.html',
+        job_ref = job_ref,
+        email = email,
+        days_after_completed = config['Tasks']['days_to_keep_completed'],
+        hours_after_downloaded = config['Tasks']['hours_to_keep_downloaded'])
 
 
 @app.route("/")
@@ -189,10 +221,12 @@ def route_frontend(path):
 
 @app.errorhandler(ex.InvalidUsage)
 def handle_invalid_usage(error):
-    # TODO return a template with the error here
-    response = jsonify(error.to_dict())
-    response.status_code = error.status_code
-    return response
+    return render_template('error.html',
+        message = error.message,
+        email = config['Email']['contact'])
+
+def _get_hash(email, job_ref):
+    return hashlib.md5((email+job_ref).encode('utf-8')).hexdigest()
 
 if __name__ == "__main__":
     # Only for debugging while developing

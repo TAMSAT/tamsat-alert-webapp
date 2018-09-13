@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<h1>Job list</h1>
+<p>List of completed jobs for {{ email }} with reference {{ job_ref }}:</p>
+<table>
+	<tr>
+		<th>Description</th>
+		<th>Status</th>
+		<th>Time of status</th>
+		<th>Link</th>
+	</tr>
+	{% for job in jobs %}
+	<tr>
+		<td>{{ job['description'] }}</td>
+		<td>{{ job['status'] }}</td>
+		<td>{{ job['time'] }}</td>
+		<td>
+			{% if job['status'] == 'COMPLETED' or job['status'] == 'DOWNLOADED' %}
+			<a href="../downloadResult?job_id={{ job['job_id'] }}">Download</a>
+			{% endif %}
+		</td>
+	</tr>
+	<tr>
+    {% endfor %}
+</table>
+<br />
+<p>Note that jobs are available for download for {{ days_after_completed }} days after completion, or {{ hours_after_downloaded }} hours after they have been downloaded for the first time.</p>
+{% endblock %}

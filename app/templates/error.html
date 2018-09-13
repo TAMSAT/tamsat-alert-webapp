@@ -1,0 +1,10 @@
+{% extends 'base.html' %}
+{% block content %}
+<p>Sorry, there is a problem with TAMSAT alert.  The error message from the server is:</p>
+<code>
+	{{ message }}
+</code>
+<p>
+	This may be a temporary error, but if this problem persists, please <a href="mailto:{{ email }}">contact us</a>
+</p>
+{% endblock %}

@@ -1,29 +1,19 @@
-import os, os.path, shutil
-import hashlib
 from celery import Celery, Task
 from celery.utils.log import get_task_logger
+
+import os, os.path, shutil
+from datetime import datetime as dt
+import sqlite3
+import zipfile
 
 from tamsat_alert import tamsat_alert as ta
 from tamsat_alert.extract_data import extract_point_timeseries
 from config import config
+import util
 
-from time import time
-from datetime import datetime as dt
-import zipfile
-
-ID_KEY = 'id'
-COMPLETED_TIME_KEY = 'completed_time'
 
 log = get_task_logger(__name__)
 
-# Setup the working directory and create if necessary
-workdir = config['Tasks']['workdir']
-if(os.path.exists(workdir)):
-    if(not os.path.isdir(workdir)):
-        raise ValueError('The configured working directory (' +
-                         workdir + ') exists, but it is not a directory')
-else:
-    os.mkdir(workdir)
 
 # Setup the celery app
 celery_app = Celery('tasks',
@@ -34,37 +24,36 @@ celery_app = Celery('tasks',
 celery_app.conf.update(task_serializer='pickle',
                        accept_content=['json', 'pickle'])
 
-from time import sleep
+
+# TODO Implement regular cleanup task
 
 @celery_app.task()
-def tamsat_alert_run(location, init_date, poi_start, poi_end, fc_start, fc_end, stat_type, tercile_weights, email):
+def tamsat_alert_run(location, init_date, poi_start, poi_end, fc_start, fc_end, stat_type, tercile_weights, email, db_key):
     log.debug('Calling task')
+
+    job_id = tamsat_alert_run.request.id
+
+    # Update the database to indicate the job is running
+    db = sqlite3.connect(config['Tasks']['dbfile'])
+    with db:
+        c = db.cursor()
+        c.execute('''
+            UPDATE jobs SET status=?, time=?, job_id=?
+            WHERE id=?
+            ''',
+            ('RUNNING', int(dt.now().timestamp()), job_id, db_key))
+    db.close()
 
     lon, lat = location
 
-    # Setup an output directory in workdir
+    # Setup an output directory in config['Tasks']['workdir']
     # This is based on the celery job ID, so should be unique
-    job_id = tamsat_alert_run.request.id
-    output_path = os.path.join(workdir, job_id)
-
-    sleep(30)
-    open(get_zipfile_from_job_id(job_id), 'w').close()
-    return {ID_KEY: job_id,
-            COMPLETED_TIME_KEY: dt.now()}
+    output_path = os.path.join(config['Tasks']['workdir'], job_id)
 
     # Extract a DataFrame containing the data at the specified location
     data = extract_point_timeseries(config['Data']['path'], lon, lat)
 
-    location_name = ''
-    if(lat >= 0):
-        location_name += '{0:.3f}°N'.format(lat)
-    else:
-        location_name += '{0:.3f}°S'.format(-lat)
-    location_name += ', '
-    if(lon >= 0):
-        location_name += '{0:.3f}°E'.format(lon)
-    else:
-        location_name += '{0:.3f}°W'.format(-lon)
+    location_name = util.location_to_str(lon, lat)
 
     # Run the job.  This will run the tamsat alert system, and write data to the
     # output directory
@@ -84,7 +73,7 @@ def tamsat_alert_run(location, init_date, poi_start, poi_end, fc_start, fc_end, 
                     location_name=location_name)
 
     # Now go into output_dir and create a zip file containing everything.
-    zipfile_name = get_zipfile_from_job_id(job_id)
+    zipfile_name = util.get_zipfile_from_job_id(job_id)
     zipf = zipfile.ZipFile(zipfile_name,
                            'w', zipfile.ZIP_DEFLATED)
     for root, dirs, files, in os.walk(output_path):
@@ -102,8 +91,13 @@ def tamsat_alert_run(location, init_date, poi_start, poi_end, fc_start, fc_end, 
     # TODO send an email to the user, with link to a direct download.
     # TODO this will require an arg to this function with the server name
 
-    return {ID_KEY: job_id,
-            COMPLETED_TIME_KEY: dt.now()}
-
-def get_zipfile_from_job_id(job_id):
-    return os.path.join(workdir, job_id+'.zip')
+    # Update the database to indicate the job is completed
+    db = sqlite3.connect(config['Tasks']['dbfile'])
+    with db:
+        c = db.cursor()
+        c.execute('''
+            UPDATE jobs SET status=?, time=?
+            WHERE id=?
+            ''',
+            ('COMPLETED', int(dt.now().timestamp()), db_key))
+    db.close()
