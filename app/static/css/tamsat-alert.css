@@ -17,6 +17,15 @@ header {
     width: 100%;
 }
 
+footer {
+	position: fixed;
+	bottom: 0;
+	font-size: 75%;
+	text-align: center;
+	background-color: #f8f8f8;
+    width: 600px;
+}
+
 h1 {
     font-size: 20pt;
 }
