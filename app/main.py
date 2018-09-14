@@ -189,7 +189,8 @@ def submit():
                                         stat_type,
                                         tercile_weights,
                                         email,
-                                        db_key)
+                                        db_key,
+                                        request.url_root)
 
 
     # Return job submitted page

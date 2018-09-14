@@ -1,5 +1,6 @@
 import os.path
 import smtplib
+from config import config
 from email.mime.text import MIMEText
 
 def get_zipfile_from_job_id(job_id):
