@@ -9,17 +9,15 @@ import pickle
 import tasks
 import util
 from config import config
+import database as db
 import exceptions as ex
 from datetime import timedelta, datetime as dt
-import sqlite3
 import hashlib
 
 
 # Define the Flask app at top module level.
 # This is the recommended method for small webapps
 app = Flask(__name__)
-
-
 
 # Setup the working directory and create if necessary
 workdir = config['Tasks']['workdir']
@@ -28,25 +26,7 @@ if(os.path.exists(workdir)):
         raise ValueError('The configured working directory (' +
                          workdir + ') exists, but it is not a directory')
 else:
-    os.mkdir(workdir)
-
-# Setup the job list database on first run, if necessary
-# No try / except - if this raises an exception, the entire app will fail to start
-# That is the desired behaviour - if we can't create the database, something is wrong
-db = sqlite3.connect(config['Tasks']['dbfile'])
-# 'with' takes care of the commit, but doesn't close the DB
-with db:
-    c = db.cursor()
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS jobs(id INTEGER PRIMARY KEY AUTOINCREMENT,
-            userhash TEXT,
-            status TEXT,
-            time INTEGER,
-            description TEXT,
-            job_id TEXT)
-    ''')
-db.close()
-
+    os.makedirs(workdir)
 
 @app.route("/jobs", methods=["GET"])
 def get_job_list():
@@ -59,28 +39,8 @@ def get_job_list():
         # Either the email or ref parameter is missing
         raise ex.InvalidUsage('You must provide a value for '+e.args[0])
 
-    db = sqlite3.connect(config['Tasks']['dbfile'])
-    # 'with' takes care of the commit, but doesn't close the DB
-    with db:
-        db.row_factory = sqlite3.Row
-        c = db.cursor()
-        c.execute('''
-            SELECT description, status, time, job_id
-            FROM jobs
-            WHERE userhash=?
-            ''',
-            (_get_hash(email, job_ref),))
-        rows = c.fetchall()
-    db.close()
 
-    jobs = []
-    for row in rows:
-        jobs.append({
-            'description': row['description'],
-            'status': row['status'],
-            'time': dt.fromtimestamp(int(row['time'])),
-            'job_id': row['job_id']
-        })
+    jobs = db.get_jobs(_get_hash(email, job_ref))
 
     return render_template('job_list.html',
         email=email,
@@ -104,15 +64,7 @@ def download():
     if not os.path.exists(zipfile) or not os.path.isfile(zipfile):
         raise ex.InvalidUsage('The job with ID '+job_id+' does not exist on this server.  Completed jobs get removed '+config['Tasks']['days_to_keep_completed']+' days after completion.')
 
-    db = sqlite3.connect(config['Tasks']['dbfile'])
-    with db:
-        c = db.cursor()
-        c.execute('''
-            UPDATE jobs SET status=?, time=?
-            WHERE job_id=?
-            ''',
-            ('DOWNLOADED', int(dt.now().timestamp()), job_id))
-    db.close()
+    db.set_downloaded(job_id)
 
     return send_file(zipfile, attachment_filename='tamsat_alert.zip')
 
@@ -164,19 +116,8 @@ def submit():
     except KeyError as e:
         raise ex.InvalidUsage('You must provide a value for '+e.args[0])
 
-
-    # TODO make descriptive
     description = 'Cumulative rainfall at ' + util.location_to_str(*location)
-    db = sqlite3.connect(config['Tasks']['dbfile'])
-    # 'with' takes care of the commit, but doesn't close the DB
-    with db:
-        c = db.cursor()
-        c.execute('''
-            INSERT INTO jobs(userhash, status, time, description) VALUES(?,?,?,?)
-            ''',
-            (_get_hash(email, job_ref), 'QUEUED', int(dt.now().timestamp()), description))
-        db_key = c.lastrowid
-    db.close()
+    db_key = db.add_job(_get_hash(email, job_ref), description)
 
     # Submit to the celery queue
     # TODO Other metrics need implementing (i.e. soil moisture, WRSI)

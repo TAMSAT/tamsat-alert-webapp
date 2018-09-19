@@ -3,6 +3,7 @@ import smtplib
 from config import config
 from email.mime.text import MIMEText
 
+
 def get_zipfile_from_job_id(job_id):
     return os.path.join(config['Tasks']['workdir'], job_id+'.zip')
 

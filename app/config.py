@@ -19,7 +19,7 @@ config['Data'] = {'path': '/configure/path/to/data',
                   'period_of_interest_end_year': '2010'
                   }
 config['Celery'] = {'backend': 'redis://',
-                    'broker': 'amqp://guest@queue//'}
+                    'broker': 'redis://'}
 
 
 # Read the config file.  This will overwrite any defaults

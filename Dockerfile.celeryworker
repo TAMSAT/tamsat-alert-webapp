@@ -1,7 +1,9 @@
 FROM python:3.6
 
-RUN pip install celery==4.2.0
+RUN pip install --upgrade pip
+RUN pip install celery==4.2.0 redis==2.10.6 netcdf4 xarray matplotlib scipy seaborn dask statsmodels pandas toolz
 
+# Indicate to Celery that we are running as root
 ENV C_FORCE_ROOT=1
 
 COPY ./app /app
@@ -9,5 +11,5 @@ WORKDIR /app
 
 ENV PYTHONPATH=/app
 
-# Start a celery worker with a single
-CMD celery worker -A tasks -l info -Q main-queue -c 2
+# Start a single celery worker running 2 simultaneous jobs
+CMD celery worker -A tasks -l info -c 2 -B

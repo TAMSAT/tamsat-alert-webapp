@@ -1,7 +1,12 @@
 version: '3'
 services:
-    queue:
-        image: rabbitmq:3
+    redis:
+        image: 'redis:3.2'
+        command: redis-server
+        volumes:
+          - 'redis:/data'
+        ports:
+          - '6379:6379'
     backend:
         build:
             context: ./
@@ -9,9 +14,16 @@ services:
             - "80"
         ports:
             - "80:80"
+        volumes:
+            - /usr/local/tamsat-data:/usr/local/tamsat-data
     celeryworker:
         build:
             context: ./
             dockerfile: Dockerfile.celeryworker
         depends_on:
-            - queue
+            - redis
+        stop_grace_period: 2h
+        volumes:
+            - /usr/local/tamsat-data:/usr/local/tamsat-data
+volumes:
+    redis:
