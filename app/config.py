@@ -1,3 +1,10 @@
+'''
+Configuration for the TAMSAT ALERT webapp.
+
+This defines default values, overrides them with the tamsat-alert.cfg
+file, and exports that object for use with other modules
+'''
+
 import configparser
 
 config = configparser.ConfigParser()

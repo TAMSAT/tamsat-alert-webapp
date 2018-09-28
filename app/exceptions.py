@@ -1,3 +1,7 @@
+'''
+Contains custom exceptions for handling errors in the TAMSAT ALERT system
+'''
+
 class InvalidUsage(Exception):
     status_code = 400
 

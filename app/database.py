@@ -51,12 +51,26 @@ def init():
     ''')
 
 def add_job(userhash, description):
+    '''
+    Adds a new job to the database.  It will be in the state "QUEUED"
+
+    :param userhash:    A key to retrieve jobs by.  Designed to
+                        be a hash of the email address + job ref
+    :param description: A description of the job
+    :return:            The primary ID of the job in the database
+    '''
     return _run_sql('''
         INSERT INTO jobs(userhash, status, time, description) VALUES(?,?,?,?)
     ''',
     (userhash, 'QUEUED', int(dt.now().timestamp()), description), return_id=True)
 
 def set_job_running(db_key, job_id):
+    '''
+    Sets a job's state to "RUNNING" and associates a job ID with it
+
+    :param db_key:  The primary key of the job to alter
+    :param job_id:  The required job ID
+    '''
     _run_sql('''
         UPDATE jobs SET status=?, time=?, job_id=?
         WHERE id=?
@@ -64,6 +78,11 @@ def set_job_running(db_key, job_id):
     ('RUNNING', int(dt.now().timestamp()), job_id, db_key))
 
 def set_job_completed(db_key):
+    '''
+    Sets a job's state to "COMPLETED"
+
+    :param db_key:  The primary key of the job to alter
+    '''
     _run_sql('''
         UPDATE jobs SET status=?, time=?
         WHERE id=?
@@ -71,6 +90,17 @@ def set_job_completed(db_key):
     ('COMPLETED', int(dt.now().timestamp()), db_key))
 
 def get_jobs(userhash):
+    '''
+    Gets all jobs associated with a specified key
+
+    :param userhash:    The key to retrieve jobs.   Designed to be a hash
+                        of the email address + the job reference
+    :return:            An array of objects containing the keys:
+                        'description' - description of the job
+                        'status' - string representation of the job status
+                        'time' - when the status was last updated (datetime.datetime)
+                        'job_id' - the job ID, which corresponds to where the results are
+    '''
     rows = _run_sql('''
         SELECT description, status, time, job_id
         FROM jobs
@@ -90,6 +120,11 @@ def get_jobs(userhash):
     return jobs
 
 def set_downloaded(job_id):
+    '''
+    Sets a job's state to "DOWNLOADED"
+
+    :param job_id:  The job ID of the job to alter
+    '''
     _run_sql('''
                 UPDATE jobs SET status=?, time=?
                 WHERE job_id=?
@@ -97,6 +132,11 @@ def set_downloaded(job_id):
             ('DOWNLOADED', int(dt.now().timestamp()), job_id))
 
 def set_error(job_id):
+    '''
+    Sets a job's state to "ERROR"
+
+    :param job_id:  The job ID of the job to alter
+    '''
     _run_sql('''
                 UPDATE jobs SET status=?, time=?
                 WHERE job_id=?
@@ -104,6 +144,13 @@ def set_error(job_id):
             ('ERROR', int(dt.now().timestamp()), job_id))
 
 def remove_expired_jobs():
+    '''
+    Removes expired jobs from the database.
+
+    This uses the expiry times from the config module
+
+    :return:    A list of job IDs which were removed
+    '''
     removed_job_ids=[]
 
     db = sqlite3.connect(config['Tasks']['dbfile'])

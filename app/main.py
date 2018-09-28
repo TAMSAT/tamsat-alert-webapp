@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+'''
+The main Flask webapp for the TAMSAT ALERT job queuing system
+'''
 
 import os, os.path
 from flask import Flask, send_file, abort, request, render_template, jsonify
@@ -30,6 +33,11 @@ else:
 
 @app.route("/jobs", methods=["GET"])
 def get_job_list():
+    '''
+    Gets a list of jobs by the specified user/job ref combination.
+
+    Requires the parameters 'email', and 'ref'
+    '''
     params = request.args
     # Here, we get the job ref and email from the params
     try:
@@ -52,6 +60,11 @@ def get_job_list():
 
 @app.route("/downloadResult", methods=["GET"])
 def download():
+    '''
+    Downloads a zip file containing the output from a job
+
+    Requires the parameter 'job_id'
+    '''
     params = request.args
 
     try:
@@ -71,6 +84,26 @@ def download():
 
 @app.route("/tamsatAlertTask", methods=["POST"])
 def submit():
+    '''
+    Parses POST parameters from the HTML form and submits a job to the celery queue.
+    Requires the POST parameters:
+
+    locationType - Either 'point' or 'region'
+    lon, lat - The coordinates at which to run the code OR
+    minLat, maxLat, minLon, maxLon - The bounding box over which to run the code
+    initDate - Forecast date in the form YYYY-MM-DD
+    poiStart - Period of interest start date in the form YYYY-MM-DD
+    poiEnd - Period of interest end date in the form YYYY-MM-DD
+    forecastStart - Met forecast period start date in the form YYYY-MM-DD
+    forecastEnd - Met forecast period end date in the form YYYY-MM-DD
+    metric - The metric to run.  'cumrain', 'soilMoisture', or 'wrsi'
+    tercileLow - The weighting for tercile 1 (all terciles must add upto 1)
+    tercileMid - The weighting for tercile 2
+    tercileHigh - The weighting for tercile 3
+    stat - The probability distribution to use.  'normal', or 'ecdf'
+    email - The user's email address
+    ref - A job reference for retrieving the job (alongside email)
+    '''
     # Get the POST parameters
     params = request.form
 
@@ -123,10 +156,12 @@ def submit():
     # TODO Other metrics need implementing (i.e. soil moisture, WRSI)
     task = tasks.tamsat_alert_run.delay(location,
                                         init_date,
-                                        poi_start,
-                                        poi_end,
-                                        fc_start,
-                                        fc_end,
+                                        poi_start.day,
+                                        poi_start.month,
+                                        poi_end.day,
+                                        poi_end.month,
+                                        fc_start.day,
+                                        fc_end.month,
                                         stat_type,
                                         tercile_weights,
                                         email,
@@ -168,6 +203,9 @@ def handle_invalid_usage(error):
         email = config['Email']['contact'])
 
 def _get_hash(email, job_ref):
+    '''
+    Gets a hash based on an email and job reference
+    '''
     return hashlib.md5((email+job_ref).encode('utf-8')).hexdigest()
 
 if __name__ == "__main__":
