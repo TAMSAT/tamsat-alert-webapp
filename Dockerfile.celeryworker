@@ -12,4 +12,4 @@ WORKDIR /app
 ENV PYTHONPATH=/app
 
 # Start a single celery worker running 2 simultaneous jobs
-CMD celery worker -A tasks -l info -c 2 -B
+CMD ["/usr/local/bin/celery", "worker", "-A", "tasks", "-l", "info", "-c", "2", "-B"]
