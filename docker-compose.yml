@@ -1,5 +1,9 @@
 version: '3'
 services:
+    frontend-build:
+        build: ./frontend-build
+        volumes:
+            - static-web:/mnt/www-out
     redis:
         image: 'redis:3.2'
         command: redis-server
@@ -10,12 +14,15 @@ services:
     backend:
         build:
             context: ./
+        depends_on:
+            - frontend-build
         expose:
             - "80"
         ports:
             - "80:80"
         volumes:
             - /usr/local/tamsat-data:/usr/local/tamsat-data
+            - static-web:/app/static
     celeryworker:
         build:
             context: ./
@@ -27,3 +34,5 @@ services:
             - /usr/local/tamsat-data:/usr/local/tamsat-data
 volumes:
     redis:
+    static-web:
+        driver: local

@@ -121,10 +121,14 @@ def submit():
             raise ex.InvalidUsage('Parameter "locationType" must be either "point" or "region"')
 
         init_date = Timestamp(params['initDate'])
-        poi_start = Timestamp(params['poiStart'])
-        poi_end = Timestamp(params['poiEnd'])
-        fc_start = Timestamp(params['forecastStart'])
-        fc_end = Timestamp(params['forecastEnd'])
+        poi_start_day = int(params['poiStartDay'])
+        poi_start_month = int(params['poiStartMonth'])
+        poi_end_day = int(params['poiEndDay'])
+        poi_end_month = int(params['poiEndMonth'])
+        fc_start_day = int(params['fcStartDay'])
+        fc_start_month = int(params['fcStartMonth'])
+        fc_end_day = int(params['fcEndDay'])
+        fc_end_month = int(params['fcEndMonth'])
 
         metric = params['metric']
         if(metric.lower() != 'cumrain' and
@@ -137,7 +141,7 @@ def submit():
         th = float(params['tercileHigh'])
         # Use the isclose method here with a low tolerence
         # This is so that e.g. (0.333,0.333,0.333) still works
-        if(not isclose(tl+tm+th, 1.0, abs_tol=1e-3) ):
+        if(not isclose(tl+tm+th, 1.0, abs_tol=0.015) ):
             raise ex.InvalidUsage('Tercile parameters must add up to 1')
         tercile_weights = (tl, tm, th)
 
@@ -156,18 +160,19 @@ def submit():
     # TODO Other metrics need implementing (i.e. soil moisture, WRSI)
     task = tasks.tamsat_alert_run.delay(location,
                                         init_date,
-                                        poi_start.day,
-                                        poi_start.month,
-                                        poi_end.day,
-                                        poi_end.month,
-                                        fc_start.day,
-                                        fc_end.month,
+                                        poi_start_day,
+                                        poi_start_month,
+                                        poi_end_day,
+                                        poi_end_month,
+                                        fc_start_day,
+                                        fc_start_month,
+                                        fc_end_day,
+                                        fc_end_month,
                                         stat_type,
                                         tercile_weights,
                                         email,
                                         db_key,
                                         request.url_root)
-
 
     # Return job submitted page
     return render_template('job_submitted.html',

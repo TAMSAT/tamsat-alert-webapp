@@ -118,8 +118,9 @@ def tamsat_alert_run(location, cast_date, poi_start_day, poi_start_month, poi_en
 
         # Update the database to indicate the job is completed
         db.set_job_completed(db_key)
-    except:
+    except Exception as e:
         db.set_error(job_id)
+        raise e
 
 
 
