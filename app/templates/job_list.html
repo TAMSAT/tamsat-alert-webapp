@@ -17,7 +17,7 @@
 		<td>{{ job['time'] }}</td>
 		<td>
 			{% if job['status'] == 'COMPLETED' or job['status'] == 'DOWNLOADED' %}
-			<a href="../downloadResult?job_id={{ job['job_id'] }}">Download</a>
+			<a href="downloadResult?job_id={{ job['job_id'] }}">Download</a>
 			{% endif %}
 		</td>
 	</tr>

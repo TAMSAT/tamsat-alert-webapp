@@ -47,7 +47,6 @@ def get_job_list():
         # Either the email or ref parameter is missing
         raise ex.InvalidUsage('You must provide a value for '+e.args[0])
 
-
     jobs = db.get_jobs(_get_hash(email, job_ref))
 
     return render_template('job_list.html',

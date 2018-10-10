@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% block content %}
 <p>
-	Your job has been successfully submitted to the queue.  When completed, it will be available from <a href="/jobs?email={{email}}&ref={{job_ref}}">here.</a>
+	Your job has been successfully submitted to the queue.  When completed, it will be available from <a href="jobs?email={{email}}&ref={{job_ref}}">here.</a>
 </p>
 <p>Note that your job will be available for download for {{ days_after_completed }} days after completion, or {{ hours_after_downloaded }} hours after it has been downloaded for the first time.</p>
 <p>
