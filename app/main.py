@@ -4,7 +4,7 @@ The main Flask webapp for the TAMSAT ALERT job queuing system
 '''
 
 import os, os.path
-from flask import Flask, send_file, abort, request, render_template, jsonify
+from flask import Flask, send_file, abort, request, jsonify
 from threading import Lock, Thread
 from math import isclose
 from pandas import Timestamp
@@ -31,7 +31,7 @@ if(os.path.exists(workdir)):
 else:
     os.makedirs(workdir)
 
-@app.route("/jobs", methods=["GET"])
+@app.route("/api/jobs", methods=["GET"])
 def get_job_list():
     '''
     Gets a list of jobs by the specified user/job ref combination.
@@ -49,15 +49,14 @@ def get_job_list():
 
     jobs = db.get_jobs(_get_hash(email, job_ref))
 
-    return render_template('job_list.html',
-        email=email,
-        job_ref=job_ref,
-        jobs=jobs,
-        days_after_completed = config['Tasks']['days_to_keep_completed'],
-        hours_after_downloaded = config['Tasks']['hours_to_keep_downloaded'])
+    return jsonify({
+        'jobs': jobs,
+        'days_after_completed': config['Tasks']['days_to_keep_completed'],
+        'hours_after_downloaded': config['Tasks']['hours_to_keep_downloaded']
+    })
 
 
-@app.route("/downloadResult", methods=["GET"])
+@app.route("/api/downloadResult", methods=["GET"])
 def download():
     '''
     Downloads a zip file containing the output from a job
@@ -68,7 +67,7 @@ def download():
 
     try:
         job_id = params['job_id']
-    except KeyError:
+    except KeyError as e:
         raise ex.InvalidUsage('You must provide a value for '+e.args[0])
 
     zipfile = util.get_zipfile_from_job_id(job_id)
@@ -78,10 +77,10 @@ def download():
 
     db.set_downloaded(job_id)
 
-    return send_file(zipfile, attachment_filename='tamsat_alert.zip')
+    return send_file(zipfile, as_attachment=True, attachment_filename='tamsat_alert.zip')
 
 
-@app.route("/tamsatAlertTask", methods=["POST"])
+@app.route("/api/tamsatAlertTask", methods=["POST"])
 def submit():
     '''
     Parses POST parameters from the HTML form and submits a job to the celery queue.
@@ -173,12 +172,9 @@ def submit():
                                         db_key,
                                         request.url_root)
 
-    # Return job submitted page
-    return render_template('job_submitted.html',
-        job_ref = job_ref,
-        email = email,
-        days_after_completed = config['Tasks']['days_to_keep_completed'],
-        hours_after_downloaded = config['Tasks']['hours_to_keep_downloaded'])
+    return jsonify({
+        'job_id': task.id
+    })
 
 
 @app.route("/")
@@ -202,9 +198,10 @@ def route_frontend(path):
 
 @app.errorhandler(ex.InvalidUsage)
 def handle_invalid_usage(error):
-    return render_template('error.html',
-        message = error.message,
-        email = config['Email']['contact'])
+    return jsonify({
+        'message': error.message,
+        'contact': config['Email']['contact']
+    }), 500
 
 def _get_hash(email, job_ref):
     '''
