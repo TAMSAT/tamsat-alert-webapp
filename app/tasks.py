@@ -52,23 +52,23 @@ def tamsat_alert_run(location, cast_date, poi_start_day, poi_start_month, poi_en
     '''
     log.debug('Calling task')
 
-    job_id = tamsat_alert_run.request.id
-
-    # Update the database to indicate the job is running
-    db.set_job_running(db_key, job_id)
-
-    lon, lat = location
-
-    # Setup an output directory in config['Tasks']['workdir']
-    # This is based on the celery job ID, so will be unique
-    output_path = os.path.join(config['Tasks']['workdir'], job_id)
-
-    # Extract a DataFrame containing the data at the specified location
-    data = extract_point_timeseries(config['Data']['path'], lon, lat)
-
-    location_name = util.location_to_str(lon, lat)
-
     try:
+        job_id = tamsat_alert_run.request.id
+
+        # Update the database to indicate the job is running
+        db.set_job_running(db_key, job_id)
+
+        lon, lat = location
+
+        # Setup an output directory in config['Tasks']['workdir']
+        # This is based on the celery job ID, so will be unique
+        output_path = os.path.join(config['Tasks']['workdir'], job_id)
+
+        # Extract a DataFrame containing the data at the specified location
+        data = extract_point_timeseries(config['Data']['path'], lon, lat)
+
+        location_name = util.location_to_str(lon, lat)
+
         # Run the job.  This will run the tamsat alert system, and write data to the
         # output directory
         ta.tamsat_alert(data,
