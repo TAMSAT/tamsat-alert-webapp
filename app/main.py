@@ -178,7 +178,6 @@ def submit():
 
 
 @app.route("/")
-@app.route("/tamsatAlertTask", methods=["GET"])
 def main():
     index_path = os.path.join(app.static_folder, 'index.html')
     return send_file(index_path)
@@ -192,9 +191,12 @@ def route_frontend(path):
     file_path = os.path.join(app.static_folder, path)
     if os.path.isfile(file_path):
         return send_file(file_path)
-    # Otherwise, send 404
+    # Otherwise, redirect to index
+    # Since we are using a single-page frontend app to handle all requests,
+    # we don't throw a 404 here - we let the frontend do it if required
     else:
-        abort(404)
+        index_path = os.path.join(app.static_folder, 'index.html')
+        return send_file(index_path)
 
 @app.errorhandler(ex.InvalidUsage)
 def handle_invalid_usage(error):
