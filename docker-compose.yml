@@ -1,7 +1,10 @@
 version: '3'
 services:
     frontend-build:
-        build: ./frontend-build
+        build:
+            context: ./frontend-build
+            args:
+                BASE_URL: /
         volumes:
             - static-web:/mnt/www-out
     redis:
