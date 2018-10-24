@@ -65,12 +65,14 @@ def tamsat_alert_run(location, cast_date, poi_start_day, poi_start_month, poi_en
         output_path = os.path.join(config['Tasks']['workdir'], job_id)
 
         # Extract a DataFrame containing the data at the specified location
+        log.debug('Extracting necessary data')
         data = extract_point_timeseries(config['Data']['path'], lon, lat)
 
         location_name = util.location_to_str(lon, lat)
 
         # Run the job.  This will run the tamsat alert system, and write data to the
         # output directory
+        log.debug('Data extracted, running TAMSAT ALERT code')
         ta.tamsat_alert(data,
                         cast_date,
                         'rfe',
@@ -88,6 +90,7 @@ def tamsat_alert_run(location, cast_date, poi_start_day, poi_start_month, poi_en
                         location_name=location_name)
 
         # Now go into output_dir and create a zip file containing everything.
+        log.debug('TAMSAT ALERT code finished.  Zipping output')
         zipfile_name = util.get_zipfile_from_job_id(job_id)
         zipf = zipfile.ZipFile(zipfile_name,
                                'w', zipfile.ZIP_DEFLATED)
@@ -103,6 +106,7 @@ def tamsat_alert_run(location, cast_date, poi_start_day, poi_start_month, poi_en
         except OSError as e:
             log.error('Problem removing working directory: '+output_path)
 
+        log.debug('Output completed, emailing user')
         downloadLink = server_url + 'downloadResult?job_id='+job_id
         message = 'Your TAMSAT alert data is ready to download. '+ \
                   'You can retrieve it by visiting '+downloadLink+ \
@@ -118,7 +122,9 @@ def tamsat_alert_run(location, cast_date, poi_start_day, poi_start_month, poi_en
 
         # Update the database to indicate the job is completed
         db.set_job_completed(db_key)
+        log.debug('Task completed')
     except Exception as e:
+        # TODO save the error message in the database (add it to the description?), and expose it on the job list retrieval
         db.set_error(job_id)
         raise e
 
