@@ -99,6 +99,7 @@ def tamsat_alert_run(location, cast_date, poi_start_day, poi_start_month, poi_en
                 abs_file = os.path.join(root, file)
                 zipf.write(abs_file,
                            arcname=os.path.relpath(abs_file, output_path))
+        zipf.close()
 
         # Remove the output directory, since all of the output is now contained in the zip
         try:
