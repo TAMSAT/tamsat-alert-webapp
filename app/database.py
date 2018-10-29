@@ -45,6 +45,7 @@ def init():
         CREATE TABLE IF NOT EXISTS jobs(id INTEGER PRIMARY KEY AUTOINCREMENT,
             userhash TEXT,
             status TEXT,
+            error_message TEXT,
             time INTEGER,
             description TEXT,
             job_id TEXT)
@@ -102,7 +103,7 @@ def get_jobs(userhash):
                         'job_id' - the job ID, which corresponds to where the results are
     '''
     rows = _run_sql('''
-        SELECT description, status, time, job_id
+        SELECT description, status, time, job_id, error_message
         FROM jobs
         WHERE userhash=?
     ''',
@@ -115,7 +116,8 @@ def get_jobs(userhash):
             'description': row['description'],
             'status': row['status'],
             'time': dt.fromtimestamp(int(row['time'])),
-            'job_id': row['job_id']
+            'job_id': row['job_id'],
+            'error': row['error_message'],
         })
     return jobs
 
@@ -131,17 +133,17 @@ def set_downloaded(job_id):
             ''',
             ('DOWNLOADED', int(dt.now().timestamp()), job_id))
 
-def set_error(job_id):
+def set_error(job_id, message):
     '''
     Sets a job's state to "ERROR"
 
     :param job_id:  The job ID of the job to alter
     '''
     _run_sql('''
-                UPDATE jobs SET status=?, time=?
+                UPDATE jobs SET status=?, error_message=?, time=?
                 WHERE job_id=?
             ''',
-            ('ERROR', int(dt.now().timestamp()), job_id))
+            ('ERROR', message, int(dt.now().timestamp()), job_id))
 
 def remove_expired_jobs():
     '''
@@ -172,7 +174,8 @@ def remove_expired_jobs():
                 timedelta(days=int(config['Tasks']['days_to_keep_completed']))
             expiry_time_downloaded = time + \
                 timedelta(hours=int(config['Tasks']['hours_to_keep_downloaded']))
-            if (row['status'] == 'COMPLETED' and dt.now() > expiry_time_completed) or \
+            if ((row['status'] == 'COMPLETED' or row['status'] == 'ERROR') \
+                        and dt.now() > expiry_time_completed) or \
                     (row['status'] == 'DOWNLOADED' and dt.now() > expiry_time_downloaded):
                 removed_job_ids.append(row['job_id'])
 
