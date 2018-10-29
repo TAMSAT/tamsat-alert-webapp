@@ -37,7 +37,7 @@ def location_to_str(lon, lat):
         location_name += '{0:.3f}°W'.format(-lon)
     return location_name
 
-def send_email(to, subject, message):
+def send_email(to, subject, message, ssl=True):
     '''
     Sends an email
 
@@ -54,7 +54,11 @@ def send_email(to, subject, message):
     msg['Subject'] = subject
 
     # Send the message
-    s = smtplib.SMTP(server_settings['server'])
+    if(ssl):
+        s = smtplib.SMTP_SSL(server_settings['server'])
+    else:
+        s = smtplib.SMTP(server_settings['server'])
+
     s.login(server_settings['username'], server_settings['password'])
     s.send_message(msg)
     s.quit()
