@@ -102,6 +102,7 @@ def submit():
     email - The user's email address
     ref - A job reference for retrieving the job (alongside email)
     '''
+
     # Get the POST parameters
     params = request.form
 
@@ -111,10 +112,10 @@ def submit():
         if(locType.lower() == 'point'):
             location = (float(params['lon']), float(params['lat']))
         elif(locType.lower() == 'region'):
-            location = (float(params['minLat']),
-                        float(params['maxLat']),
-                        float(params['minLon']),
-                        float(params['maxLon']))
+            location = (float(params['minLon']),
+                        float(params['maxLon']),
+                        float(params['minLat']),
+                        float(params['maxLat']))
         else:
             raise ex.InvalidUsage('Parameter "locationType" must be either "point" or "region"')
 
@@ -123,6 +124,13 @@ def submit():
         poi_start_month = int(params['poiStartMonth'])
         poi_end_day = int(params['poiEndDay'])
         poi_end_month = int(params['poiEndMonth'])
+
+        fc_var = params['fcVar']
+        fc_location = (float(params['fcLonMin']),
+                       float(params['fcLonMax']),
+                       float(params['fcLatMin']),
+                       float(params['fcLatMax']))
+
         fc_start_day = int(params['fcStartDay'])
         fc_start_month = int(params['fcStartMonth'])
         fc_end_day = int(params['fcEndDay'])
@@ -133,6 +141,13 @@ def submit():
                 metric.lower() != 'wrsi' and
                 metric.lower() != 'soilmoisture'):
             raise ex.InvalidUsage('Parameter "metric" must be one of "cumRain", "wrsi", and "soilMoisture"')
+
+        # Get parameters specified to soil moisture
+        soil_type = None
+        lead_time = None
+        if(metric.lower() == 'soilmoisture'):
+            soil_type = params['soilType']
+            lead_time = int(params['leadTimeDays'])
 
         tl = float(params['tercileLow'])
         tm = float(params['tercileMid'])
@@ -155,8 +170,9 @@ def submit():
     db_key = db.add_job(_get_hash(email, job_ref), description)
 
     # Submit to the celery queue
-    # TODO Other metrics need implementing (i.e. soil moisture, WRSI)
     task = tasks.tamsat_alert_run.delay(location,
+                                        fc_location,
+                                        fc_var,
                                         init_date,
                                         poi_start_day,
                                         poi_start_month,
@@ -170,7 +186,9 @@ def submit():
                                         tercile_weights,
                                         email,
                                         db_key,
-                                        request.url_root)
+                                        metric.lower(),
+                                        soil_type,
+                                        lead_time)
 
     return jsonify({
         'job_id': task.id
