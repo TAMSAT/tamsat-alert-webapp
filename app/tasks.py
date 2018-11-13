@@ -82,7 +82,7 @@ def tamsat_alert_run(location, fc_location, fc_var, cast_date, poi_start_day, po
         # Depending on which driving variable we're using,
         # we need to extract the data from a different place
         if(fc_var == "temperature"):
-            fc_path = config['Data']['met_fc_temp']
+            fc_path = config['Data']['met_fc_temp_path']
         else:
             fc_path = config['Data']['tamsat_path']
         fc_data = xd.extract_area_mean_timeseries(fc_path,
