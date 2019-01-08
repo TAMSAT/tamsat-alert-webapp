@@ -13,7 +13,7 @@ config['Tasks'] = {'workdir': '/tmp/tamsat-alert',
                    'dbfile': '/tmp/tamsat-alert/ta-jobs.sqlite3',
                    'days_to_keep_completed': '7',
                    'hours_to_keep_downloaded': '24',
-                   'download_link': 'www.tamsat.org.uk/alert/downloadResult'
+                   'download_link': 'www.tamsat.org.uk/alert/api/downloadResult'
                    }
 config['Email'] = {'server': 'smtp.reading.ac.uk',
                    'contact': 'tamsat@reading.ac.uk',
@@ -33,6 +33,7 @@ config['Data'] = {
                   'wind_u_comp_str': 'uwnd',
                   'wind_v_comp_str': 'vwnd',
                   'humidity_str': 'shum',
+                  'sm_lead_time': '5'
                   'climatology_start_year': '1983',
                   'climatology_end_year': '2010',
                   'period_of_interest_start_year': '1983',

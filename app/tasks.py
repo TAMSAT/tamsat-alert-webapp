@@ -40,7 +40,7 @@ celery_app.conf.beat_schedule = {
 
 
 @celery_app.task()
-def tamsat_alert_run(location, fc_location, fc_var, cast_date, poi_start_day, poi_start_month, poi_end_day, poi_end_month, fc_start_day, fc_start_month, fc_end_day, fc_end_month, stat_type, tercile_weights, email, db_key, metric='cumrain', soil_type=None, lead_time_days=None):
+def tamsat_alert_run(location, fc_location, fc_var, cast_date, poi_start_day, poi_start_month, poi_end_day, poi_end_month, fc_start_day, fc_start_month, fc_end_day, fc_end_month, stat_type, tercile_weights, email, db_key, metric='cumrain', soil_type=None):
     '''
     Runs the TAMSAT ALERT code and, updates the database, zips the output,
     cleans up temporary files, and emails users.
@@ -135,7 +135,7 @@ def tamsat_alert_run(location, fc_location, fc_var, cast_date, poi_start_day, po
                                   poi_end_day, poi_end_month,
                                   fc_start_day, fc_start_month,
                                   fc_end_day, fc_end_month,
-                                  lead_time_days,
+                                  int(config['Data']['sm_lead_time']),
                                   tercile_weights,
                                   int(config['Data']['climatology_start_year']),
                                   int(config['Data']['climatology_end_year']),
