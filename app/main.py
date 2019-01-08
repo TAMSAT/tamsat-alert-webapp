@@ -187,8 +187,7 @@ def submit():
                                         email,
                                         db_key,
                                         metric.lower(),
-                                        soil_type,
-                                        lead_time)
+                                        soil_type)
 
     return jsonify({
         'job_id': task.id
